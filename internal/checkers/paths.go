@@ -18,8 +18,9 @@ var createTargetRe = regexp.MustCompile(`\b(cp|mv|touch|mkdir|install|ln|tee)\b|
 
 // Paths verifies that file paths referenced in docs resolve on disk.
 // Code-span paths resolve against the repo root; markdown links/images also
-// resolve relative to the document's directory.
-func Paths(root string, docs []parsers.Doc, sev map[string]string) []find.Finding {
+// resolve relative to the document's directory. strict skips the namespace
+// heuristic — set it when docs must reference only real top-level dirs.
+func Paths(root string, docs []parsers.Doc, sev map[string]string, strict bool) []find.Finding {
 	var out []find.Finding
 	seen := map[string]bool{}
 	lineCache := map[string][]string{}
@@ -33,8 +34,8 @@ func Paths(root string, docs []parsers.Doc, sev map[string]string) []find.Findin
 			}
 			// Extensionless multi-segment strings whose first segment is
 			// not a real repo dir are namespaces, not paths (x/crypto/…,
-			// tools/call, org/image).
-			if filepath.Ext(filepath.Base(p)) == "" && strings.Contains(p, "/") {
+			// tools/call, org/image) — unless strict mode is on.
+			if !strict && filepath.Ext(filepath.Base(p)) == "" && strings.Contains(p, "/") {
 				first := strings.SplitN(p, "/", 2)[0]
 				if st, err := os.Stat(filepath.Join(root, first)); err != nil || !st.IsDir() {
 					continue

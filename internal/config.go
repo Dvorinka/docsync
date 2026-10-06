@@ -20,6 +20,12 @@ type Config struct {
 	DependencyFiles []string          `yaml:"dependency_files"`
 	Severity        map[string]string `yaml:"severity"`
 	Ignore          []string          `yaml:"ignore"`
+	// StrictPaths disables the namespace heuristic: extensionless
+	// multi-segment strings whose first segment isn't a real dir are
+	// normally skipped (x/crypto/argon2, tools/call). With strict_paths
+	// on they are flagged as missing paths — useful when a doc points at
+	// an entirely absent top-level directory.
+	StrictPaths bool `yaml:"strict_paths"`
 }
 
 // DefaultConfig returns sensible defaults for a repo without .docsync.yml.
@@ -77,5 +83,6 @@ func LoadConfig(root, configPath string) (Config, error) {
 	}
 	cfg.Severity = raw.Severity
 	cfg.Ignore = raw.Ignore
+	cfg.StrictPaths = raw.StrictPaths
 	return cfg, nil
 }

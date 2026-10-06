@@ -49,7 +49,7 @@ func RunCheck(root string, cfg Config) (Result, error) {
 		warnings = append(warnings, fmt.Sprintf("no %s found — skipping env checks", cfg.EnvFile))
 	}
 
-	findings = append(findings, checkers.Paths(root, docs, cfg.Severity)...)
+	findings = append(findings, checkers.Paths(root, docs, cfg.Severity, cfg.StrictPaths)...)
 	findings = append(findings, checkers.Commands(root, docs, cfg.Severity)...)
 	findings = append(findings, checkers.Routes(root, docs, cfg.APIRoutes, cfg.Severity)...)
 	findings = append(findings, checkers.Versions(root, docs, cfg.DependencyFiles, cfg.Severity)...)

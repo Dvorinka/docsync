@@ -59,6 +59,9 @@ README describe this repo accurately." That gap is the product.
 - **Baseline adoption** — `--baseline-out .docsync-baseline` records
   today's drift; `--baseline .docsync-baseline` suppresses it so
   legacy repos gate only *new* drift.
+- **Next.js routes** — `framework: nextjs` maps `app/**/route.*` and
+  `pages/api/**` files to routes, including `[id]` and `[...slug]`
+  params; exported verbs become the methods.
 - **Agent-ready** — `--json` on every command; stable snake_case keys.
 
 ## Quick Start
@@ -105,6 +108,10 @@ annotations.
 ### `docsync report [--json]`
 
 Same data as `check`, formatted for reading. Always exits `0`.
+
+### `docsync completion <bash|zsh|fish>`
+
+Prints a completion script — `source <(docsync completion bash)`.
 
 ### `docsync version`
 
@@ -170,6 +177,14 @@ api_routes:      # opt-in route cross-reference
     framework: "go"       # gin/echo/chi/net-http
   - dir: "apps/web/src"
     framework: "express"  # app.get, router.post
+  - dir: "app"
+    framework: "nextjs"   # app/**/route.* + pages/api/** file routes
+
+# strict_paths: true disables the namespace heuristic — extensionless
+# paths like `x/crypto/argon2` are normally skipped, but so is a doc
+# referencing a top-level dir that doesn't exist at all. Turn this on
+# when you want those flagged too.
+strict_paths: false
 
 dependency_files:
   - "package.json"

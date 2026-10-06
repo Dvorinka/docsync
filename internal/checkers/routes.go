@@ -40,6 +40,23 @@ func Routes(root string, docs []parsers.Doc, specs []find.RouteSpec, sev map[str
 				case ".ts", ".tsx", ".js", ".jsx":
 					code = append(code, parsers.ExpressRoutes(filepath.Join(dir, rel), full)...)
 				}
+			case "nextjs", "next":
+				switch filepath.Ext(rel) {
+				case ".ts", ".tsx", ".js", ".jsx":
+					path, methods := parsers.NextjsRoute(spec.Dir, rel)
+					if path == "" {
+						return
+					}
+					if len(methods) == 0 {
+						methods = parsers.NextjsExportedMethods(filepath.Join(dir, rel))
+					}
+					if len(methods) == 0 {
+						methods = []string{"ANY"}
+					}
+					for _, m := range methods {
+						code = append(code, parsers.Route{Method: m, Path: path, File: full, Line: 1})
+					}
+				}
 			}
 		})
 	}

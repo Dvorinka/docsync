@@ -265,3 +265,68 @@ func TestSARIFOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestNextjsRoutes(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		p := filepath.Join(root, rel)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte(body), 0o644)
+	}
+	write("app/api/users/route.ts", "export async function GET() {}\nexport function POST() {}\n")
+	write("app/api/users/[id]/route.ts", "export function GET() {}\n")
+	write("app/dashboard/page.tsx", "export default function Page() {}")
+	write("README.md", "# api\n\n`GET /api/users` `POST /api/users` `GET /api/users/42`\n")
+	os.WriteFile(filepath.Join(root, ".docsync.yml"),
+		[]byte("api_routes:\n  - dir: app\n    framework: nextjs\n"), 0o644)
+
+	cfg, err := internal.LoadConfig(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := internal.RunCheck(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range res.Findings {
+		if f.Category == "route_not_found" || f.Category == "route_undocumented" {
+			t.Fatalf("nextjs routes should all match: %+v", f)
+		}
+	}
+}
+
+func TestStrictPaths(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "docs"), 0o755)
+	os.WriteFile(filepath.Join(root, ".env.example"), []byte("X=1\n"), 0o644)
+	os.WriteFile(filepath.Join(root, "docs/guide.md"),
+		[]byte("see `tests/e2e` and `x/crypto/argon2`\n"), 0o644)
+	cfg, _ := internal.LoadConfig(root, "")
+	cfg.Docs = []string{"docs/*.md"}
+	res, err := internal.RunCheck(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range res.Findings {
+		if f.Category == "path_not_found" {
+			t.Fatalf("namespace heuristic should skip both, got %+v", f)
+		}
+	}
+	cfg.StrictPaths = true
+	res, _ = internal.RunCheck(root, cfg)
+	var strictPaths []string
+	for _, f := range res.Findings {
+		if f.Category == "path_not_found" {
+			strictPaths = append(strictPaths, f.Key)
+		}
+	}
+	found := false
+	for _, k := range strictPaths {
+		if k == "tests/e2e" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("strict_paths should flag tests/e2e, got %v", strictPaths)
+	}
+}

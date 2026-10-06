@@ -23,6 +23,7 @@ Usage:
   docsync report  [--json] [--baseline FILE] [--root DIR] [--config FILE]
   docsync fix     [--dry-run] [--json] [--root DIR] [--config FILE]
   docsync version
+  docsync completion <bash|zsh|fish>
 
 Exit codes: 0 clean, 1 warnings only, 2 critical drift, 5 error.
 
@@ -38,6 +39,14 @@ func main() {
 	cmd := os.Args[1]
 	if cmd == "version" || cmd == "--version" || cmd == "-version" {
 		fmt.Println("docsync", version)
+		return
+	}
+	if cmd == "completion" && len(os.Args) >= 3 {
+		s, err := internal.Completion(os.Args[2])
+		if err != nil {
+			fail(err)
+		}
+		fmt.Print(s)
 		return
 	}
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
