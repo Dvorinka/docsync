@@ -12,14 +12,22 @@ import (
 	"github.com/Dvorinka/docsync/internal"
 )
 
+// version is stamped at release: -ldflags "-X main.version=v0.1.0".
+var version = "dev"
+
 const usage = `docsync — documentation drift detector
 
 Usage:
-  docsync check   [--json] [--root DIR] [--config FILE]
-  docsync report  [--json] [--root DIR] [--config FILE]
+  docsync check   [--json | --format sarif] [--baseline FILE]
+                  [--baseline-out FILE] [--root DIR] [--config FILE]
+  docsync report  [--json] [--baseline FILE] [--root DIR] [--config FILE]
   docsync fix     [--dry-run] [--json] [--root DIR] [--config FILE]
+  docsync version
 
 Exit codes: 0 clean, 1 warnings only, 2 critical drift, 5 error.
+
+A baseline file suppresses known findings — generate once with
+--baseline-out, then adopt incrementally.
 `
 
 func main() {
@@ -28,25 +36,60 @@ func main() {
 		os.Exit(5)
 	}
 	cmd := os.Args[1]
+	if cmd == "version" || cmd == "--version" || cmd == "-version" {
+		fmt.Println("docsync", version)
+		return
+	}
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	jsonOut := fs.Bool("json", false, "machine-readable output")
+	format := fs.String("format", "", "output format: sarif")
 	root := fs.String("root", ".", "repo root to scan")
 	config := fs.String("config", "", "path to .docsync.yml")
 	dryRun := fs.Bool("dry-run", false, "show what fix would change")
+	baseline := fs.String("baseline", "", "suppress findings listed in FILE")
+	baselineOut := fs.String("baseline-out", "", "write current findings as a baseline file")
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		os.Exit(5)
 	}
 
 	abs, err := filepath.Abs(*root)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(5)
+		fail(err)
 	}
 
 	cfg, err := internal.LoadConfig(abs, *config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(5)
+		fail(err)
+	}
+
+	var bl map[string]bool
+	if *baseline != "" {
+		bl, err = internal.LoadBaseline(*baseline)
+		if err != nil {
+			fail(err)
+		}
+	}
+
+	emit := func(res internal.Result, alwaysZero bool) {
+		res = internal.ApplyBaseline(res, bl)
+		if *baselineOut != "" {
+			if err := internal.WriteBaseline(*baselineOut, res.Findings); err != nil {
+				fail(err)
+			}
+		}
+		switch {
+		case *format == "sarif":
+			if err := internal.WriteSARIF(os.Stdout, res, version); err != nil {
+				fail(err)
+			}
+		case *jsonOut:
+			internal.WriteJSON(os.Stdout, res)
+		default:
+			internal.Report(os.Stdout, res)
+		}
+		if !alwaysZero {
+			os.Exit(internal.ExitCode(res))
+		}
 	}
 
 	switch cmd {
@@ -55,22 +98,13 @@ func main() {
 		if err != nil {
 			fail(err)
 		}
-		if *jsonOut {
-			internal.WriteJSON(os.Stdout, res)
-		} else {
-			internal.Report(os.Stdout, res)
-		}
-		os.Exit(internal.ExitCode(res))
+		emit(res, false)
 	case "report":
 		res, err := internal.RunCheck(abs, cfg)
 		if err != nil {
 			fail(err)
 		}
-		if *jsonOut {
-			internal.WriteJSON(os.Stdout, res)
-		} else {
-			internal.Report(os.Stdout, res)
-		}
+		emit(res, true)
 	case "fix":
 		fr, res, err := internal.Fix(abs, cfg, *dryRun)
 		if err != nil {

@@ -22,9 +22,10 @@ type RouteSpec struct {
 
 // Summary counts findings by severity.
 type Summary struct {
-	Critical int `json:"critical"`
-	Warning  int `json:"warning"`
-	Total    int `json:"total"`
+	Critical   int `json:"critical"`
+	Warning    int `json:"warning"`
+	Total      int `json:"total"`
+	Suppressed int `json:"suppressed,omitempty"` // findings hidden by a baseline
 }
 
 // DefaultSeverity maps category -> default severity (overridable via .docsync.yml).

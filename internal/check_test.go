@@ -1,6 +1,8 @@
 package internal_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sort"
@@ -182,4 +184,84 @@ func splitLines(s string) []string {
 	}
 	out = append(out, s[start:])
 	return out
+}
+
+func TestBaselineSuppresses(t *testing.T) {
+	root := driftRoot(t)
+	cfg, err := internal.LoadConfig(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := internal.RunCheck(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blPath := filepath.Join(t.TempDir(), ".docsync-baseline")
+	if err := internal.WriteBaseline(blPath, res.Findings); err != nil {
+		t.Fatal(err)
+	}
+	bl, err := internal.LoadBaseline(blPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtered := internal.ApplyBaseline(res, bl)
+	if filtered.Summary.Total != 0 || filtered.Summary.Suppressed != len(res.Findings) {
+		t.Fatalf("expected all suppressed, got %+v", filtered.Summary)
+	}
+	if internal.ExitCode(filtered) != 0 {
+		t.Fatal("baselined findings must not gate")
+	}
+	// A new finding still fires.
+	res.Findings = append(res.Findings, find.New("path_not_found", "new/missing.go", "d", "README.md", 1, nil))
+	filtered = internal.ApplyBaseline(res, bl)
+	if filtered.Summary.Total != 1 {
+		t.Fatalf("new drift should survive the baseline, got %+v", filtered.Summary)
+	}
+}
+
+func TestSARIFOutput(t *testing.T) {
+	root := driftRoot(t)
+	cfg, err := internal.LoadConfig(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := internal.RunCheck(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := internal.WriteSARIF(&buf, res, "test"); err != nil {
+		t.Fatal(err)
+	}
+	var log struct {
+		Version string `json:"version"`
+		Runs    []struct {
+			Tool struct {
+				Driver struct {
+					Name  string `json:"name"`
+					Rules []struct {
+						ID string `json:"id"`
+					} `json:"rules"`
+				} `json:"driver"`
+			} `json:"tool"`
+			Results []struct {
+				RuleID string `json:"ruleId"`
+				Level  string `json:"level"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &log); err != nil {
+		t.Fatalf("invalid sarif: %v", err)
+	}
+	if log.Version != "2.1.0" || len(log.Runs) != 1 || log.Runs[0].Tool.Driver.Name != "docsync" {
+		t.Fatalf("bad sarif envelope: %+v", log)
+	}
+	if len(log.Runs[0].Results) != len(res.Findings) {
+		t.Fatalf("results %d != findings %d", len(log.Runs[0].Results), len(res.Findings))
+	}
+	for _, r := range log.Runs[0].Results {
+		if r.Level != "error" && r.Level != "warning" {
+			t.Fatalf("bad level %q", r.Level)
+		}
+	}
 }

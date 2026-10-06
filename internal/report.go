@@ -38,7 +38,11 @@ func icon(sev string) string {
 // Report writes the human-readable grouped report.
 func Report(w io.Writer, res Result) {
 	sum := res.Summary
-	fmt.Fprintf(w, "Documentation drift report — %d finding%s\n\n", sum.Total, plural(sum.Total))
+	suffix := ""
+	if sum.Suppressed > 0 {
+		suffix = fmt.Sprintf(" (%d suppressed by baseline)", sum.Suppressed)
+	}
+	fmt.Fprintf(w, "Documentation drift report — %d finding%s%s\n\n", sum.Total, plural(sum.Total), suffix)
 	groups := map[string][]find.Finding{}
 	for _, f := range res.Findings {
 		title := categoryTitles[f.Category]

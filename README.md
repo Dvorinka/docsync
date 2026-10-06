@@ -54,6 +54,11 @@ README describe this repo accurately." That gap is the product.
   --check` shells out when a package depends on Expo.
 - **`docsync fix`** — appends missing keys to `.env.example` with a TODO
   comment. Never edits prose. `--dry-run` supported.
+- **SARIF output** — `--format sarif` feeds GitHub code scanning;
+  findings land as PR annotations.
+- **Baseline adoption** — `--baseline-out .docsync-baseline` records
+  today's drift; `--baseline .docsync-baseline` suppresses it so
+  legacy repos gate only *new* drift.
 - **Agent-ready** — `--json` on every command; stable snake_case keys.
 
 ## Quick Start
@@ -80,7 +85,7 @@ docsync fix              # append missing keys to .env.example
 
 ## Commands
 
-### `docsync check [--json]`
+### `docsync check [--json | --format sarif] [--baseline FILE] [--baseline-out FILE]`
 
 The CI gate. Reads `.docsync.yml` if present (sensible defaults without
 it), scans the repo, prints findings grouped by category.
@@ -88,9 +93,23 @@ it), scans the repo, prints findings grouped by category.
 Exit codes: `0` clean · `1` warnings only · `2` critical findings ·
 `5` malformed config or unreadable input.
 
+`--format sarif` emits SARIF 2.1.0 — pipe it to
+`github/codeql-action/upload-sarif` and drift findings become PR
+annotations.
+
+`--baseline-out FILE` writes the current finding set as a baseline;
+`--baseline FILE` then suppresses exactly those findings (matched by
+`category|key`, immune to line-number churn). The JSON summary reports
+`suppressed: N`.
+
 ### `docsync report [--json]`
 
 Same data as `check`, formatted for reading. Always exits `0`.
+
+### `docsync version`
+
+Prints the binary version (`dev` for source builds; release binaries are
+stamped).
 
 ### `docsync fix [--dry-run] [--json]`
 
