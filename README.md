@@ -67,6 +67,10 @@ README describe this repo accurately." That gap is the product.
 ## Quick Start
 
 ```bash
+# one-liner — latest release binary to ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/Dvorinka/docsync/main/install.sh | sh
+
+# or from source
 go install github.com/Dvorinka/docsync/cmd/docsync@latest
 ```
 
