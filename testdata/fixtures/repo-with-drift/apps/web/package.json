@@ -1,0 +1,11 @@
+{
+  "name": "web",
+  "private": true,
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "vite"
+  },
+  "engines": {
+    "node": "22"
+  }
+}

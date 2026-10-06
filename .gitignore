@@ -1,0 +1,4 @@
+/docsync
+*.test
+coverage.*
+dist/

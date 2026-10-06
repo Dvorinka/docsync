@@ -1,0 +1,10 @@
+{
+  "name": "clean-repo",
+  "private": true,
+  "scripts": {
+    "build": "echo building"
+  },
+  "engines": {
+    "node": "22"
+  }
+}
